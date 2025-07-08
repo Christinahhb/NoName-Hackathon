@@ -6,7 +6,8 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
-    "start": "next start"
+    "start": "next start",
+    "test:spoonacular": "node scripts/test-spoonacular.js"
   },
   "dependencies": {
     "@babel/runtime": "latest",

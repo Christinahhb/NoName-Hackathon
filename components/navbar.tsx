@@ -35,6 +35,7 @@ export default function Navbar() {
     { href: "/", label: "Home", icon: Home },
     { href: "/recipes", label: "Recipes", icon: Compass, requiresAuth: true }, // Added requiresAuth
     { href: "/upload", label: "Upload", icon: PlusCircle, requiresAuth: true },
+    { href: "/test-spoonacular", label: "Test API", icon: ShoppingCart }, // Test page
     // Profile link will be handled separately based on auth state
   ]
 
@@ -96,7 +97,7 @@ export default function Navbar() {
         </nav>
 
         <div className="flex items-center space-x-3">
-          <Link href="/cart" asChild>
+          <Link href="/cart">
             <Button variant="ghost" size="icon" aria-label="Shopping Cart">
               <ShoppingCart className="h-5 w-5" />
             </Button>
@@ -112,7 +113,7 @@ export default function Navbar() {
               <span>Sign Out</span>
             </Button>
           ) : (
-            <Link href="/signin" asChild>
+            <Link href="/signin">
               <Button className="hidden sm:inline-flex bg-yellow-500 hover:bg-yellow-600 text-black">Sign In</Button>
             </Link>
           )}

@@ -150,7 +150,7 @@ function validateImageFile(fileBuffer: Buffer | null, fileMimeType: string | nul
   return { valid: true }
 }
 
-// Mock AI function to generate recipe (replace with actual AI service)
+// Real AI function to generate recipe using OpenAI API
 async function generateRecipeWithAI(
   recipeName: string,
   briefDescription: string,
@@ -159,49 +159,116 @@ async function generateRecipeWithAI(
   generatedRecipe: string
   extractedIngredients: ExtractedIngredient[]
 }> {
-  // Simulate AI processing time
-  await new Promise((resolve) => setTimeout(resolve, 2000))
+  const openaiApiKey = process.env.OPENAI_API_KEY
+  if (!openaiApiKey) {
+    throw new Error('OpenAI API key is not configured')
+  }
 
-  // Mock generated recipe
-  const generatedRecipe = `
-# ${recipeName}
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${openaiApiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4',
+        messages: [
+          {
+            role: 'system',
+            content: `You are an expert culinary AI assistant. Analyze the given ingredients and recipe name to:
+1. For each ingredient, strictly extract:
+   - name (e.g. 'mushroom spaghetti sauce')
+   - quantity (e.g. '3')
+   - unit (e.g. '12 ounce jars')
+   - category (e.g. 'sauce')
+   - description (e.g. 'A tomato-based sauce that includes mushrooms.')
+2. For productMatches, ensure each ingredient matches to a unique, relevant product (no duplicates, no generic matches). If no match, leave blank. Use a placeholder image URL (e.g. '/placeholder.svg') if no real image is available.
+3. Provide cooking time, difficulty, cuisine type, and dietary information.
+4. Generate detailed, step-by-step cooking instructions for the recipe. Each step should be specific, actionable, and tailored to the ingredients and cuisine. Do not use generic phrases like 'prepare all ingredients' or 'follow standard procedures'.
+5. Return the response as valid JSON with the following structure:
+{
+  "ingredients": [
+    {
+      "name": "...",
+      "quantity": "...",
+      "unit": "...",
+      "category": "...",
+      "description": "..."
+    }
+  ],
+  "productMatches": [
+    {
+      "id": "...",
+      "name": "...",
+      "price": "...",
+      "imageUrl": "...",
+      "confidence": 0.95,
+      "category": "..."
+    }
+  ],
+  "cookingTime": "...",
+  "difficulty": "...",
+  "cuisine": "...",
+  "dietaryInfo": ["..."],
+  "instructions": ["Step 1...", "Step 2...", ...]
+}`
+          },
+          {
+            role: 'user',
+            content: `Recipe: ${recipeName}\nIngredients: ${briefDescription}\n\nPlease analyze and provide structured data with detailed, concrete, step-by-step instructions for this specific recipe. Strictly parse ingredient fields and ensure unique, relevant product matches.`
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 1200
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status}`)
+    }
+
+    const data = await response.json()
+    const content = data.choices[0]?.message?.content
+    
+    if (!content) {
+      throw new Error('No content received from OpenAI')
+    }
+
+    const analysis = JSON.parse(content)
+    
+    // Convert AI analysis to our format
+    const generatedRecipe = `# ${recipeName}
 
 ## Ingredients:
-${briefDescription
-  .split(",")
-  .map((ing) => `- ${ing.trim()}`)
-  .join("\n")}
+${analysis.ingredients.map(ing => `- ${ing.quantity} ${ing.unit} ${ing.name} (${ing.category})`).join('\n')}
 
 ## Instructions:
-1. Prepare your ingredients: ${briefDescription}.
-2. Cook the main components according to their requirements.
-3. Combine all ingredients in the proper order.
-4. Season to taste and adjust flavors as needed.
-5. Serve hot and enjoy your delicious ${recipeName}!
+${analysis.instructions.map((step: string, idx: number) => `${idx + 1}. ${step}`).join('\n')}
 
-## Tips:
-- Make sure all ingredients are fresh for the best flavor.
-- Adjust cooking times based on your preferences.
-- Feel free to customize with your favorite seasonings.
-  `.trim()
+## Recipe Info:
+- **Cuisine:** ${analysis.cuisine}
+- **Difficulty:** ${analysis.difficulty}
+- **Cooking Time:** ${analysis.cookingTime}
+- **Dietary:** ${analysis.dietaryInfo.join(', ') || 'Standard'}`
 
-  // Mock extracted ingredients with store products
-  const extractedIngredients: ExtractedIngredient[] = briefDescription.split(",").map((ing, index) => ({
-    id: `ing-${index}-${Date.now()}`,
-    name: ing.trim(),
-    quantity: "1 unit",
-    storeProduct:
-      Math.random() > 0.3
-        ? {
-            id: `prod-${index}-${Date.now()}`,
-            name: `NoName ${ing.trim()}`,
-            price: `$${(Math.random() * 5 + 1).toFixed(2)}`,
-            imageUrl: `/placeholder.svg?width=50&height=50&text=${ing.trim().charAt(0)}`,
-          }
-        : undefined,
-  }))
+    const extractedIngredients: ExtractedIngredient[] = analysis.ingredients.map((ing: any, index: number) => ({
+      id: `ing-${index}-${Date.now()}`,
+      name: ing.name,
+      quantity: `${ing.quantity} ${ing.unit}`,
+      storeProduct: analysis.productMatches.find((match: any) => match.category === ing.category) ? {
+        id: `prod-${index}-${Date.now()}`,
+        name: analysis.productMatches.find((match: any) => match.category === ing.category)?.name || `NoName ${ing.name}`,
+        price: analysis.productMatches.find((match: any) => match.category === ing.category)?.price || '$3.99',
+        imageUrl: analysis.productMatches.find((match: any) => match.category === ing.category)?.imageUrl || `/placeholder.svg?width=50&height=50&text=${ing.name.charAt(0).toUpperCase()}`,
+      } : undefined,
+    }))
 
-  return { generatedRecipe, extractedIngredients }
+    return { generatedRecipe, extractedIngredients }
+  } catch (error) {
+    console.error('Error calling OpenAI API:', error)
+    throw new Error('Failed to generate recipe with AI. Please try again.')
+  }
 }
 
 // Cloud Function 1: Generate Recipe and Ingredients (Store as Draft)
@@ -271,7 +338,7 @@ export const generateRecipe = functions.https.onRequest(async (req, res) => {
         expires: Date.now() + 24 * 60 * 60 * 1000, // 24 hours from now
       })
 
-      // Generate recipe and ingredients using AI (mock implementation)
+      // Generate recipe and ingredients using AI
       const { generatedRecipe, extractedIngredients } = await generateRecipeWithAI(name, briefDescription, fileBuffer!)
 
       // Store draft in Firestore

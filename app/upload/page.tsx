@@ -87,7 +87,14 @@ function UploadRecipePageContent() {
         id: `ing-${index}-${Date.now()}`,
         name: aiIng.name,
         quantity: `${aiIng.quantity} ${aiIng.unit}`,
-        storeProduct: analysis.productMatches.find(match => match.category === aiIng.category) || undefined,
+        storeProduct:
+          analysis.productMatches.find(
+            match =>
+              match.name.toLowerCase().includes(aiIng.name.toLowerCase()) ||
+              aiIng.name.toLowerCase().includes(match.name.toLowerCase())
+          )
+          || analysis.productMatches.find(match => match.category === aiIng.category)
+          || undefined,
       }))
       setExtractedIngredients(ingredients)
       toast({
@@ -261,24 +268,38 @@ function UploadRecipePageContent() {
                 <div className="space-y-3">
                   {extractedIngredients.map((ing) => {
                     const aiIngredient = aiAnalysis?.ingredients.find(ai => ai.name === ing.name)
+                    // 优先显示商品图片，否则Spoonacular图片，否则占位图
+                    const displayImage = (ing.storeProduct?.imageUrl && ing.storeProduct.imageUrl !== '/placeholder.svg')
+                      ? ing.storeProduct.imageUrl
+                      : aiIngredient?.imageUrl || '/placeholder.svg';
+                    const displayName = ing.storeProduct?.name || ing.name;
+                    const displayPrice = ing.storeProduct?.price || '';
                     return (
                       <Card key={ing.id} className="p-3 bg-gray-50 dark:bg-neutral-700/50 flex flex-col sm:flex-row gap-2 items-start">
                         <div className="flex-grow space-y-1">
                           <Input value={ing.name} onChange={e => handleEditIngredient(ing.id, "name", e.target.value)} placeholder="Ingredient Name" className="text-sm" />
                           <Input value={ing.quantity} onChange={e => handleEditIngredient(ing.id, "quantity", e.target.value)} placeholder="Quantity (e.g. 2 cups)" className="text-sm" />
                           {aiIngredient && (
-                            <div className="text-xs text-muted-foreground"><span className="inline-block bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 px-2 py-1 rounded mr-2">{aiIngredient.category}</span><span>{aiIngredient.description}</span></div>
+                            <div className="text-xs text-muted-foreground">
+                              <span className="inline-block bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 px-2 py-1 rounded mr-2">{aiIngredient.category}</span>
+                              <span>{aiIngredient.description}</span>
+                            </div>
                           )}
                         </div>
-                        <div className="sm:w-48 flex-shrink-0">
-                          {ing.storeProduct ? (
-                            <div className="flex items-center space-x-2 p-2 border dark:border-neutral-600 rounded-md bg-white dark:bg-neutral-800">
-                              <Image src={ing.storeProduct.imageUrl || "/placeholder.svg"} alt={ing.storeProduct.name} width={30} height={30} className="rounded" />
-                              <div className="text-xs"><p className="font-medium">{ing.storeProduct.name}</p><p className="text-muted-foreground">{ing.storeProduct.price}</p></div>
+                        <div className="sm:w-48 flex-shrink-0 flex flex-col items-center">
+                          <div className="flex flex-row items-center p-2 border dark:border-neutral-600 rounded-md bg-white dark:bg-neutral-800">
+                            <Image
+                              src={displayImage}
+                              alt={displayName}
+                              width={50}
+                              height={50}
+                              className="rounded-md object-cover border mr-2"
+                            />
+                            <div className="text-xs">
+                              <p className="font-medium">{displayName}</p>
+                              <p className="text-muted-foreground">{displayPrice}</p>
                             </div>
-                          ) : (
-                            <div className="flex items-center space-x-2 p-2 border border-dashed dark:border-neutral-600 rounded-md text-xs text-muted-foreground"><AlertTriangle className="w-4 h-4 text-orange-400" /><span>No match found</span></div>
-                          )}
+                          </div>
                           <Button variant="link" size="sm" onClick={() => handleSwapIngredient(ing.id)} className="text-xs text-yellow-600 dark:text-yellow-500 p-1">Swap Product</Button>
                         </div>
                         <Button variant="ghost" size="icon" onClick={() => handleRemoveIngredient(ing.id)} className="text-red-500 hover:text-red-600 flex-shrink-0"><Trash2 className="w-4 h-4" /></Button>
