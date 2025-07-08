@@ -23,6 +23,7 @@ export interface AIRecipeAnalysis {
   difficulty: string
   cuisine: string
   dietaryInfo: string[]
+  instructions: string[] // 新增
 }
 
 // Mock AI service - replace with actual AI API calls
@@ -34,12 +35,10 @@ export class AIService {
   }
 
   async analyzeIngredients(briefIngredients: string, recipeName: string): Promise<AIRecipeAnalysis> {
-    // If you have OpenAI API key, use this:
-    if (this.apiKey) {
-      return this.callOpenAI(briefIngredients, recipeName)
+    if (!this.apiKey) {
+      throw new Error('OpenAI API key is missing. Please set NEXT_PUBLIC_OPENAI_API_KEY or OPENAI_API_KEY.')
     }
-    // Fallback to enhanced mock with better logic
-    return this.enhancedMockAnalysis(briefIngredients, recipeName)
+    return this.callOpenAI(briefIngredients, recipeName)
   }
 
   private async callOpenAI(briefIngredients: string, recipeName: string): Promise<AIRecipeAnalysis> {
@@ -56,43 +55,50 @@ export class AIService {
             {
               role: 'system',
               content: `You are an expert culinary AI assistant. Analyze the given ingredients and recipe name to:
-1. Parse ingredients into structured format with quantities and units
-2. Suggest appropriate NoName brand product matches
-3. Provide cooking time, difficulty, cuisine type, and dietary information
-4. Return the response as valid JSON with the following structure:
+1. For each ingredient, strictly extract:
+   - name (e.g. 'mushroom spaghetti sauce')
+   - quantity (e.g. '3')
+   - unit (e.g. '12 ounce jars')
+   - category (e.g. 'sauce')
+   - description (e.g. 'A tomato-based sauce that includes mushrooms.')
+2. For productMatches, ensure each ingredient matches to a unique, relevant product (no duplicates, no generic matches). If no match, leave blank. Use a placeholder image URL (e.g. '/placeholder.svg') if no real image is available.
+3. Provide cooking time, difficulty, cuisine type, and dietary information.
+4. Generate detailed, step-by-step cooking instructions for the recipe. Each step should be specific, actionable, and tailored to the ingredients and cuisine. Do not use generic phrases like 'prepare all ingredients' or 'follow standard procedures'.
+5. Return the response as valid JSON with the following structure:
 {
   "ingredients": [
     {
-      "name": "ingredient name",
-      "quantity": "amount",
-      "unit": "unit of measurement",
-      "category": "category (e.g., protein, vegetable, dairy)",
-      "description": "brief description"
+      "name": "...",
+      "quantity": "...",
+      "unit": "...",
+      "category": "...",
+      "description": "..."
     }
   ],
   "productMatches": [
     {
-      "id": "unique_id",
-      "name": "NoName Product Name",
-      "price": "$X.XX",
-      "imageUrl": "placeholder_url",
+      "id": "...",
+      "name": "...",
+      "price": "...",
+      "imageUrl": "...",
       "confidence": 0.95,
-      "category": "product_category"
+      "category": "..."
     }
   ],
-  "cookingTime": "X minutes",
-  "difficulty": "Easy/Medium/Hard",
-  "cuisine": "cuisine type",
-  "dietaryInfo": ["vegetarian", "gluten-free", etc.]
+  "cookingTime": "...",
+  "difficulty": "...",
+  "cuisine": "...",
+  "dietaryInfo": ["..."],
+  "instructions": ["Step 1...", "Step 2...", ...]
 }`
             },
             {
               role: 'user',
-              content: `Recipe: ${recipeName}\nIngredients: ${briefIngredients}\n\nPlease analyze and provide structured data.`
+              content: `Recipe: ${recipeName}\nIngredients: ${briefIngredients}\n\nPlease analyze and provide structured data with detailed, concrete, step-by-step instructions for this specific recipe. Strictly parse ingredient fields and ensure unique, relevant product matches.`
             }
           ],
           temperature: 0.3,
-          max_tokens: 1000
+          max_tokens: 1200
         })
       })
 
@@ -159,7 +165,14 @@ export class AIService {
       cookingTime: this.estimateCookingTime(ingredients),
       difficulty: this.assessDifficulty(ingredients),
       cuisine: this.detectCuisine(recipeName, ingredients),
-      dietaryInfo: this.analyzeDietaryInfo(ingredients)
+      dietaryInfo: this.analyzeDietaryInfo(ingredients),
+      instructions: [
+        `Preheat your oven to 180°C (350°F).`,
+        `Prepare all ingredients as listed above.`,
+        `Follow standard cooking procedures for ${recipeName}.`,
+        `Cook for the recommended time.`,
+        `Serve hot and enjoy!`
+      ]
     }
   }
 
