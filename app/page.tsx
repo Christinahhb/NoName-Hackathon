@@ -9,11 +9,22 @@ export default function HomePage() {
   return (
     <div className="bg-gray-50 dark:bg-neutral-900 text-neutral-800 dark:text-white">
       {/* Hero Section */}
-      <section className="py-16 md:py-24 bg-yellow-400 dark:bg-yellow-600">
-        <div className="container mx-auto px-4 text-center">
+      <section className="relative py-16 md:py-24 bg-yellow-400 dark:bg-yellow-600 overflow-hidden">
+        {/* Background Image */}
+        <div className="absolute inset-0 z-0">
+          <Image
+            src="/hero-cooking.jpg"
+            alt="Cooking background"
+            fill
+            className="object-cover opacity-20"
+            priority
+          />
+        </div>
+        
+        <div className="container mx-auto px-4 text-center relative z-10">
           <div className="flex justify-center mb-6">
             <Image
-              src="/placeholder.svg?width=120&height=120"
+              src="/icon.png"
               alt="NoName Recipes Logo"
               width={120}
               height={120}
@@ -80,11 +91,11 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
             <div>
               <Image
-                src="/placeholder.svg?width=500&height=350"
-                alt="Students cooking"
+                src="student.png"
+                alt="Students cooking together"
                 width={500}
                 height={350}
-                className="rounded-lg shadow-lg mx-auto"
+                className="rounded-lg shadow-lg mx-auto object-cover"
               />
             </div>
             <div className="space-y-6">
